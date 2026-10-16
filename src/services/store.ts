@@ -291,6 +291,98 @@ class AppStore {
     return newDoc;
   }
 
+  public batchAddDocuments(
+    folderUrl: string,
+    docs: Array<{
+      title: string;
+      documentNumber: string | null;
+      year: number | null;
+      documentType: string;
+      sourceUrl: string;
+      ownerTeamId: string | null;
+      tags: string[];
+      indexedText: string;
+    }>,
+    user?: User
+  ): Document[] {
+    const activeUser = user || this.getCurrentUser();
+    if (!this.canUploadDocument(activeUser)) {
+      throw new Error('Hanya Super Admin dan Admin Tim yang dapat melakukan batch upload dokumen.');
+    }
+
+    const createdDocs: Document[] = [];
+
+    docs.forEach((item, index) => {
+      let assignedTeamId = item.ownerTeamId;
+      if (activeUser.role === 'Admin Tim') {
+        assignedTeamId = activeUser.teamIds[0] || null;
+      }
+
+      const team = this.teams.find((t) => t.id === assignedTeamId);
+      const newDocId = `doc-batch-${Date.now()}-${index}`;
+
+      const newDoc: Document = {
+        id: newDocId,
+        title: item.title,
+        documentNumber: item.documentNumber,
+        year: item.year || new Date().getFullYear(),
+        documentType: item.documentType || 'SOP',
+        sourceType: 'Google Drive',
+        sourceUrl: item.sourceUrl || `${folderUrl}#file-${index}`,
+        ownerTeamId: assignedTeamId,
+        ownerTeamName: team ? team.name : undefined,
+        visibility: 'Publik', // Default Publik per user instruction
+        sharedTeamIds: [],
+        sharedUserIds: [],
+        downloadAllowed: true,
+        indexStatus: 'Terindeks',
+        legalStatus: 'Berlaku',
+        legalStatusNote: 'Dokumen diimpor massal dari Google Drive Folder dan terindeks otomatis.',
+        baseRegulationIds: [],
+        replacementDocumentId: null,
+        version: 1,
+        indexedText: item.indexedText,
+        tags: item.tags || ['batch-upload', 'google-drive'],
+        lastSyncedAt: new Date().toISOString(),
+        createdBy: activeUser.id,
+        createdByName: activeUser.name,
+        updatedAt: new Date().toISOString(),
+        clauses: [
+          { title: 'Intisari Prosedur', content: item.indexedText.slice(0, 180) + '...' },
+        ],
+      };
+
+      this.documents.unshift(newDoc);
+      createdDocs.push(newDoc);
+
+      this.versions.unshift({
+        id: `ver-batch-${Date.now()}-${index}`,
+        documentId: newDocId,
+        version: 1,
+        sourceUrl: newDoc.sourceUrl,
+        changeSummary: `Impor massal dari Google Drive Folder: ${folderUrl}`,
+        createdBy: activeUser.id,
+        createdByName: activeUser.name,
+        createdAt: new Date().toISOString(),
+      });
+    });
+
+    this.logAudit({
+      actorUserId: activeUser.id,
+      actorName: activeUser.name,
+      actorRole: activeUser.role,
+      action: 'BATCH_UPLOAD_DRIVE_FOLDER',
+      resourceType: 'Document',
+      resourceId: null,
+      resourceTitle: `Batch Upload (${docs.length} dokumen dari Drive Folder)`,
+      teamId: createdDocs[0]?.ownerTeamId || null,
+      metadata: { folderUrl, count: docs.length, defaultVisibility: 'Publik' },
+    });
+
+    this.saveState();
+    return createdDocs;
+  }
+
   public updateDocument(
     id: string,
     updates: Partial<Document> & { changeSummary?: string },

@@ -16,7 +16,9 @@ import { UsersTeamsView } from './views/UsersTeamsView';
 import { SettingsView } from './views/SettingsView';
 import { DocumentDetailModal } from './components/DocumentDetailModal';
 import { AddDocumentModal } from './components/AddDocumentModal';
+import { BatchUploadModal } from './components/BatchUploadModal';
 import { JDIHModal } from './components/JDIHModal';
+import { JDIHIframeModal } from './components/JDIHIframeModal';
 import { ReportFeedbackModal } from './components/ReportFeedbackModal';
 import { CheckCircle2, Shield, AlertTriangle } from 'lucide-react';
 
@@ -30,7 +32,12 @@ export default function App() {
   // Modals & Pinned state
   const [selectedDocForDetail, setSelectedDocForDetail] = useState<Document | null>(null);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showBatchModal, setShowBatchModal] = useState<boolean>(false);
   const [showJDIHModal, setShowJDIHModal] = useState<boolean>(false);
+  const [jdihIframeData, setJdihIframeData] = useState<{ isOpen: boolean; query: string }>({
+    isOpen: false,
+    query: '',
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
   const [pinnedDocId, setPinnedDocId] = useState<string | null>(null);
 
@@ -153,6 +160,7 @@ export default function App() {
             <AgentView
               currentUser={currentUser}
               onOpenJDIH={() => setShowJDIHModal(true)}
+              onOpenJDIHIframe={(query) => setJdihIframeData({ isOpen: true, query })}
               onViewDocument={(docId) => {
                 const doc = store.getDocumentById(docId, currentUser);
                 if (doc) setSelectedDocForDetail(doc);
@@ -175,6 +183,7 @@ export default function App() {
             <KnowledgeBaseView
               currentUser={currentUser}
               onOpenAddModal={() => setShowAddModal(true)}
+              onOpenBatchModal={() => setShowBatchModal(true)}
               onViewDetail={(doc) => setSelectedDocForDetail(doc)}
               onAskDoc={handleAskDocument}
             />
@@ -210,7 +219,7 @@ export default function App() {
         onAskDoc={handleAskDocument}
       />
 
-      {/* Add Document (Google Drive Link) Modal */}
+      {/* Add Single Document (Google Drive Link) Modal */}
       {showAddModal && (
         <AddDocumentModal
           currentUser={currentUser}
@@ -218,6 +227,24 @@ export default function App() {
           onSuccess={(title) => showToast(`Dokumen "${title}" berhasil ditambahkan & diindeks!`)}
         />
       )}
+
+      {/* Batch Upload (Google Drive Folder) Modal */}
+      {showBatchModal && (
+        <BatchUploadModal
+          currentUser={currentUser}
+          onClose={() => setShowBatchModal(false)}
+          onSuccess={(count) =>
+            showToast(`${count} Dokumen SOP berhasil diimpor & terindeks dengan visibilitas Publik!`)
+          }
+        />
+      )}
+
+      {/* JDIH Search Iframe Modal with parameter query */}
+      <JDIHIframeModal
+        isOpen={jdihIframeData.isOpen}
+        onClose={() => setJdihIframeData({ isOpen: false, query: '' })}
+        searchQuery={jdihIframeData.query}
+      />
 
       {/* JDIH Fallback & Search Modal */}
       <JDIHModal isOpen={showJDIHModal} onClose={() => setShowJDIHModal(false)} />

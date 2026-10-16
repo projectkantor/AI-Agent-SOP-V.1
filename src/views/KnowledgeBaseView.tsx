@@ -19,6 +19,7 @@ import {
   List as ListIcon,
   Trash2,
   Edit3,
+  FolderUp,
 } from 'lucide-react';
 import { Document, User, SourceType, Visibility, LegalStatus, IndexStatus } from '../types';
 import { store } from '../services/store';
@@ -26,6 +27,7 @@ import { store } from '../services/store';
 interface KnowledgeBaseViewProps {
   currentUser: User;
   onOpenAddModal: () => void;
+  onOpenBatchModal: () => void;
   onViewDetail: (doc: Document) => void;
   onAskDoc: (docId: string) => void;
   onEditDoc?: (doc: Document) => void;
@@ -34,6 +36,7 @@ interface KnowledgeBaseViewProps {
 export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
   currentUser,
   onOpenAddModal,
+  onOpenBatchModal,
   onViewDetail,
   onAskDoc,
   onEditDoc,
@@ -240,15 +243,26 @@ export const KnowledgeBaseView: React.FC<KnowledgeBaseViewProps> = ({
             </button>
           </div>
 
-          {/* Add SOP Link Button (Restricted to Super Admin & Admin Tim) */}
+          {/* Upload Buttons (Restricted to Super Admin & Admin Tim) */}
           {canUpload ? (
-            <button
-              onClick={onOpenAddModal}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium flex items-center space-x-1.5 shadow-sm transition-colors"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Tambah Tautan SOP</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={onOpenBatchModal}
+                className="px-3 py-2 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs sm:text-sm font-semibold flex items-center space-x-1.5 shadow-2xs transition-colors"
+                title="Batch Upload folder Google Drive dan ekstrak seluruh berkas SOP sekaligus"
+              >
+                <FolderUp className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Batch Upload Drive</span>
+              </button>
+
+              <button
+                onClick={onOpenAddModal}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-medium flex items-center space-x-1.5 shadow-sm transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Tautan SOP</span>
+              </button>
+            </div>
           ) : (
             <div
               className="px-3 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-xs flex items-center space-x-1.5 cursor-not-allowed"

@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Lock,
+  Globe,
 } from 'lucide-react';
 import { User, AIConversation, SourceReference } from '../types';
 import { askAIAgent, AnswerResult } from '../services/aiRAG';
@@ -27,6 +28,7 @@ import { store } from '../services/store';
 interface AgentViewProps {
   currentUser: User;
   onOpenJDIH: () => void;
+  onOpenJDIHIframe: (query: string) => void;
   onViewDocument: (docId: string) => void;
   onOpenReportModal: (convId: string, docId: string | null, qSnippet: string, aSnippet: string) => void;
   initialPinnedDocId?: string | null;
@@ -45,6 +47,8 @@ interface Message {
   unverifiedWarningMessage?: string;
   emptyState?: boolean;
   canCheckJDIH?: boolean;
+  searchQuery?: string;
+  suggestedJdihUrl?: string;
   feedback?: 'Membantu' | 'Tidak membantu' | 'Laporan kekeliruan' | null;
 }
 
@@ -62,6 +66,7 @@ const QUICK_QUESTIONS = [
 export const AgentView: React.FC<AgentViewProps> = ({
   currentUser,
   onOpenJDIH,
+  onOpenJDIHIframe,
   onViewDocument,
   onOpenReportModal,
   initialPinnedDocId,
@@ -126,6 +131,8 @@ export const AgentView: React.FC<AgentViewProps> = ({
         unverifiedWarningMessage: result.unverifiedWarningMessage,
         emptyState: result.emptyState,
         canCheckJDIH: result.canCheckJDIH,
+        searchQuery: result.searchQuery,
+        suggestedJdihUrl: result.suggestedJdihUrl,
         feedback: null,
       };
 
@@ -301,16 +308,46 @@ export const AgentView: React.FC<AgentViewProps> = ({
                     {message.text}
                   </div>
 
-                  {/* JDIH Fallback Button if empty */}
+                  {/* JDIH Search Offer with Iframe & Direct Link */}
                   {message.emptyState && message.canCheckJDIH && (
-                    <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center space-x-2">
-                      <button
-                        onClick={onOpenJDIH}
-                        className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 transition-colors"
-                      >
-                        <span>Cek di Portal JDIH Komdigi</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </button>
+                    <div className="mt-4 p-3.5 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 space-y-2.5">
+                      <div className="flex items-start space-x-2.5">
+                        <Globe className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold text-xs text-blue-950 dark:text-blue-100">
+                            Apakah Anda ingin mencari di website https://jdih.komdigi.go.id ?
+                          </p>
+                          <p className="text-[11px] text-blue-700/80 dark:text-blue-300/80 mt-0.5">
+                            Pencarian otomatis untuk: <strong className="font-semibold text-blue-900 dark:text-blue-200">"{message.searchQuery || 'dokumen yang dicari'}"</strong>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => onOpenJDIHIframe(message.searchQuery || '')}
+                          className="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-xs transition-colors"
+                        >
+                          <Globe className="w-3.5 h-3.5" />
+                          <span>Buka Hasil Pencarian JDIH (Iframe)</span>
+                        </button>
+
+                        <a
+                          href={
+                            message.suggestedJdihUrl ||
+                            `https://jdih.komdigi.go.id/produk_hukum/pencarian?tentang=${encodeURIComponent(
+                              message.searchQuery || ''
+                            )}&kategori=all&tahun=all`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors"
+                        >
+                          <span>Buka di Tab Baru</span>
+                          <ExternalLink className="w-3 h-3 text-slate-400" />
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>

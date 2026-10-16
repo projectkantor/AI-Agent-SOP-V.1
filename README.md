@@ -47,8 +47,10 @@ npm install exited with 1
 17. **`src/views/SettingsView.tsx`**: Panel sinkronisasi JDIH Komdigi, status akun Google Drive, dan pengaturan keamanan.
 18. **`src/components/DocumentDetailModal.tsx`**: Dossier lengkap dokumen, riwayat versi, status keberlakuan, dan izin unduh berpagar.
 19. **`src/components/AddDocumentModal.tsx`**: Formulir penambahan tautan Google Drive SOP oleh Admin Tim / Super Admin.
-20. **`src/components/JDIHModal.tsx`**: Dialog fallback penelusuran mandiri portal resmi JDIH Komdigi.
-21. **`src/components/ReportFeedbackModal.tsx`**: Formulir pelaporan kekeliruan rujukan jawaban AI.
+20. **`src/components/BatchUploadModal.tsx`**: Fitur Batch Upload folder Google Drive untuk memindai seluruh SOP sekaligus (default: Publik) dengan opsi **"Deteksi Otomatis oleh AI Agent"** untuk menempatkan dokumen ke unit tim yang tepat berdasarkan analisis isi teks & klausul.
+21. **`src/components/JDIHIframeModal.tsx`**: Iframe penelusuran regulasi langsung ke portal JDIH Komdigi dengan URL parameter `tentang="nama dokumen"&kategori=all&tahun=all`.
+22. **`src/components/JDIHModal.tsx`**: Dialog fallback penelusuran mandiri portal resmi JDIH Komdigi.
+23. **`src/components/ReportFeedbackModal.tsx`**: Formulir pelaporan kekeliruan rujukan jawaban AI.
 
 ---
 
