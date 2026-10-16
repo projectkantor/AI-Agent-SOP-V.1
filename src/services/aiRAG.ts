@@ -129,6 +129,14 @@ export async function askAIAgent(
     if (/tata naskah|surat keputusan|format sk/i.test(trimmed) && (doc.title.toLowerCase().includes('naskah') || doc.title.toLowerCase().includes('sk'))) score += 25;
     if (/uang persediaan|bendahara|ganti uang|gu|up/i.test(trimmed) && doc.title.toLowerCase().includes('persediaan')) score += 25;
     if (/disiplin|kode etik|hukuman disiplin/i.test(trimmed) && doc.title.toLowerCase().includes('disiplin')) score += 25;
+    if (
+      /pelatihan|keterampilan dasar|diklat|tema pelatihan|kompetensi digital/i.test(trimmed) &&
+      (doc.id.includes('keterampilan-dasar') ||
+        doc.title.toLowerCase().includes('keterampilan dasar') ||
+        doc.tags.includes('keterampilan dasar'))
+    ) {
+      score += 45;
+    }
 
     return { doc, score };
   });
@@ -151,11 +159,20 @@ export async function askAIAgent(
   }
 
   const primaryMatch = bestMatches[0].doc;
-  const secondaryMatches = bestMatches.slice(1, 3).map((item) => item.doc);
+  const topScore = bestMatches[0].score;
 
-  // Build Source References strictly from matched permitted docs
-  const sourceReferences: SourceReference[] = [primaryMatch, ...secondaryMatches].map((doc) => {
-    let sectionSnippet = doc.clauses && doc.clauses[0] ? doc.clauses[0].title : 'Pasal Terkait';
+  // CRITICAL: Jangan mencantumkan dokumen/SOP yang tidak terkait!
+  // Hanya sertakan dokumen sekunder bila benar-benar sangat relevan dengan pertanyaan pengguna (skor tinggi & mendekati topScore)
+  const secondaryMatches = bestMatches
+    .slice(1, 3)
+    .filter((item) => item.score >= 18 && item.score >= topScore * 0.75)
+    .map((item) => item.doc);
+
+  const matchedDocs = [primaryMatch, ...secondaryMatches];
+
+  // Build Source References strictly from genuinely relevant matched permitted docs
+  const sourceReferences: SourceReference[] = matchedDocs.map((doc) => {
+    let sectionSnippet = doc.clauses && doc.clauses[0] ? doc.clauses[0].title : 'Klausul Terkait';
     let quoteSnippet = doc.clauses && doc.clauses[0] ? doc.clauses[0].content : doc.indexedText.slice(0, 160).trim();
 
     return {
@@ -175,7 +192,7 @@ export async function askAIAgent(
   // Check Inactive / Revoked warnings
   let hasInactiveWarning = false;
   let inactiveWarningMessage = '';
-  const inactiveDoc = [primaryMatch, ...secondaryMatches].find((d) => d.legalStatus === 'Tidak Berlaku');
+  const inactiveDoc = matchedDocs.find((d) => d.legalStatus === 'Tidak Berlaku');
   if (inactiveDoc) {
     hasInactiveWarning = true;
     inactiveWarningMessage = `⚠️ **Penting untuk diketahui:** Dokumen *"${inactiveDoc.title}"* saat ini sudah **TIDAK BERLAKU (DICABUT)**.`;
@@ -190,7 +207,7 @@ export async function askAIAgent(
   // Check Unverified / Stale JDIH warnings (>24h sync)
   let hasUnverifiedWarning = false;
   let unverifiedWarningMessage = '';
-  const unverifiedDoc = [primaryMatch, ...secondaryMatches].find(
+  const unverifiedDoc = matchedDocs.find(
     (d) => d.legalStatus === 'Belum Terverifikasi' || (d.lastSyncedAt && isOlderThan24Hours(d.lastSyncedAt))
   );
   if (unverifiedDoc) {
@@ -280,6 +297,39 @@ function extractScannedDocumentData(
   terms: string[]
 ): ScannedDocData {
   const qLower = question.toLowerCase();
+
+  // Scenario 0: Pelatihan Keterampilan Dasar Digital ASN (Juknis)
+  if (
+    /keterampilan dasar|tema pelatihan|pelatihan digital|juknis.*pelatihan|kurikulum pelatihan|diklat digital/i.test(qLower) ||
+    primary.id.includes('keterampilan-dasar') ||
+    primary.title.toLowerCase().includes('keterampilan dasar')
+  ) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'JUKNIS/SDM/2024/003',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Kepegawaian & Pengembangan SDM',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Bab II: Tema-Tema Pelatihan dalam Program Keterampilan Dasar Digital',
+      keyFacts: [
+        'Tema 1: Literasi & Keamanan Digital Dasar (Cyber Hygiene, MFA, dan Anti-Phishing).',
+        'Tema 2: Aplikasi Perkantoran Cloud & Kolaborasi Naskah Dinas Daring Real-Time.',
+        'Tema 3: Pemanfaatan AI Produktif & Etika Pembuatan Draf Naskah Dinas.',
+        'Tema 4: Komunikasi Kedinasan Digital & Tata Krama Siber (Netiquette).',
+        'Tema 5: Pengelolaan Berkas Arsip Digital & Tanda Tangan Elektronik (TTE).',
+        'Alokasi Waktu: Total 20 Jam Pelajaran (JP) dengan metode blended learning.',
+        'Sertifikasi: Diberikan sertifikat kelulusan resmi dari Biro Kepegawaian & SDM.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana alur dan syarat pendaftaran pelatihan keterampilan dasar?',
+        'Berapa Jam Pelajaran (JP) yang dialokasikan untuk tema AI produktif?',
+        'Apakah pelatihan keterampilan dasar ini wajib diikuti seluruh ASN?'
+      ]
+    };
+  }
 
   // Scenario 1: Perjalanan dinas
   if (/perjadin|perjalanan dinas|sppd|luar kota|dinas luar/i.test(qLower) || primary.id.includes('perjadin')) {
@@ -783,6 +833,43 @@ Rujukan berkas resminya tetap kami tampilkan di bawah untuk kebutuhan arsip pene
   }
 
   // 2. Specific deep scans for institutional questions:
+
+  // Scenario 0: Juknis Pelatihan Keterampilan Dasar Digital ASN
+  if (
+    /keterampilan dasar|tema pelatihan|pelatihan digital|juknis.*pelatihan|kurikulum pelatihan|diklat digital/i.test(qLower) ||
+    primary.id.includes('keterampilan-dasar') ||
+    primary.title.toLowerCase().includes('keterampilan dasar')
+  ) {
+    return `Halo! Berdasarkan **Petunjuk Teknis (Juknis) Pelatihan Keterampilan Dasar Digital ASN (Nomor: ${primary.documentNumber || 'JUKNIS/SDM/2024/003'})**, kurikulum pelatihan ini mencakup **5 tema pelatihan utama** yang dirancang untuk meningkatkan kompetensi digital aparatur di tempat kerja:
+
+1. **Literasi dan Keamanan Digital Dasar (Cyber Hygiene)**:
+   • Pelatihan perlindungan data pribadi dan kerahasiaan berkas kedinasan.
+   • Tata cara pembuatan password yang kuat dan pengaktifan autentikasi multifaktor (MFA).
+   • Kiat mengenali dan menghindari jebakan phising, link berbahaya, serta serangan siber dasar.
+
+2. **Pengoperasian Aplikasi Perkantoran Cloud & Kolaborasi Daring**:
+   • Keterampilan mengedit dokumen bersama (collaborative editing) secara real-time di Google Docs / e-Office.
+   • Pengolahan data tabel dan spreadsheet kedinasan dengan rumus-rumus kalkulasi praktis.
+   • Pembuatan materi paparan presentasi yang visual, komunikatif, dan menarik bagi pimpinan.
+
+3. **Pemanfaatan Kecerdasan Artifisial (AI) Produktif di Tempat Kerja**:
+   • Pemahaman etika penggunaan AI bagi aparatur instansi pemerintah.
+   • Teknik menyusun prompt cerdas untuk membuat draf awal nota dinas, ringkasan laporan, dan riset regulasi.
+   • Validasi data mandiri agar informasi tidak bias atau mengalami halusinasi AI terhadap aturan kedinasan.
+
+4. **Komunikasi Kedinasan Digital & Tata Krama Siber (Netiquette)**:
+   • Standar sopan santun komunikasi persuratan elektronik dan etika pengiriman email kedinasan.
+   • Tata tertib dan etika mengikuti rapat virtual (Zoom/Google Meet), penggunaan mic, dan etika kamera.
+   • Etika bermedia sosial aparatur pemerintah yang selaras dengan nilai BerAKHLAK.
+
+5. **Pengelolaan Berkas dan Arsip Digital**:
+   • Standar penamaan file (file naming convention) dan struktur folder kerja yang rapi di Google Drive kantor.
+   • Prosedur pencadangan (backup) dokumen mandiri secara berkala.
+   • Penerapan Tanda Tangan Elektronik (TTE) resmi tersertifikasi BSrE BSSN.
+
+💡 **Informasi Tambahan:**
+Pelatihan ini diselenggarakan oleh Tim Kepegawaian & Pengembangan SDM dengan metode blended learning (kombinasi pembelajaran mandiri daring dan tatap muka praktik lab) dengan total alokasi 20 Jam Pelajaran (JP). Peserta yang lulus akan mendapatkan sertifikat kompetensi resmi!`;
+  }
 
   // Scenario A: Perjalanan Dinas (H-5, SPJ 5 hari, dokumen pendukung)
   if (/perjadin|perjalanan dinas|sppd|luar kota|dinas luar/i.test(qLower)) {

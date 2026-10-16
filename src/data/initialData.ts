@@ -472,6 +472,79 @@ SOP PENGADAAN LANGSUNG NILAI S.D. RP 50.000.000:
     clauses: [
       { title: 'Ketentuan Nilai Transaksi', content: 'Pembelian di bawah Rp 10 juta tidak mewajibkan SPK formil, cukup kuitansi sah dari penyedia.' }
     ]
+  },
+  {
+    id: 'doc-juknis-pelatihan-keterampilan-dasar',
+    title: 'Petunjuk Teknis (Juknis) Pelatihan Keterampilan Dasar Digital bagi Pegawai ASN',
+    documentNumber: 'JUKNIS/SDM/2024/003',
+    year: 2024,
+    documentType: 'Petunjuk Teknis',
+    sourceType: 'Google Drive',
+    sourceUrl: 'https://drive.google.com/file/d/6F7G8H9I0J1K2L3M4-juknis-keterampilan-dasar/view',
+    ownerTeamId: 'team-sdm',
+    ownerTeamName: 'Kepegawaian & Pengembangan SDM',
+    visibility: 'Publik',
+    sharedTeamIds: [],
+    sharedUserIds: [],
+    downloadAllowed: true,
+    indexStatus: 'Terindeks',
+    legalStatus: 'Berlaku',
+    legalStatusNote: 'Panduan kurikulum resmi pengembangan kompetensi dan keterampilan dasar digital instansi tahun 2024.',
+    baseRegulationIds: [],
+    replacementDocumentId: null,
+    version: 1,
+    tags: ['pelatihan', 'keterampilan dasar', 'digital', 'diklat', 'sdm', 'kompetensi', 'tema pelatihan', 'asn', 'juknis'],
+    lastSyncedAt: '2024-10-15T02:00:00Z',
+    createdBy: 'user-siti',
+    createdByName: 'Siti Rahmawati, S.E.',
+    updatedAt: '2024-04-12T08:00:00Z',
+    indexedText: `
+PETUNJUK TEKNIS PELAKSANAAN PELATIHAN KETERAMPILAN DASAR DIGITAL ASN:
+
+BAB I: KETENTUAN UMUM DAN TUJUAN PELATIHAN
+Pelatihan ini bertujuan meningkatkan kapabilitas dan adaptasi digital seluruh pegawai ASN dalam menunjang Sistem Pemerintahan Berbasis Elektronik (SPBE).
+
+BAB II: TEMA-TEMA PELATIHAN DALAM PROGRAM KETERAMPILAN DASAR
+Program Pelatihan Keterampilan Dasar Digital terdiri dari 5 (lima) tema pelatihan utama:
+
+1. Tema Literasi dan Keamanan Digital Dasar (Cyber Hygiene):
+   - Prinsip perlindungan data pribadi dan data sensitif kedinasan.
+   - Pembuatan kata sandi yang aman dan pengaktifan autentikasi multifaktor (MFA).
+   - Pencegahan dan identifikasi modus phishing, email palsu, serta malware.
+
+2. Tema Pengoperasian Aplikasi Perkantoran Cloud dan Kolaborasi Daring:
+   - Pengelolaan naskah dinas bersama secara real-time pada Google Docs / e-Office.
+   - Pengolahan data tabel dan spreadsheet kedinasan dengan rumus dasar.
+   - Pembuatan materi paparan presentasi yang visual, komunikatif, dan menarik.
+
+3. Tema Pemanfaatan Kecerdasan Artifisial (AI) Produktif di Tempat Kerja:
+   - Pengenalan prinsip etika penggunaan AI bagi aparatur pemerintah.
+   - Pemanfaatan prompt untuk membantu menyusun draf awal surat, ringkasan laporan, dan riset regulasi.
+   - Validasi data dan pencegahan halusinasi informasi AI terhadap aturan resmi.
+
+4. Tema Komunikasi Kedinasan Digital dan Tata Krama Siber (Netiquette):
+   - Standar sopan santun komunikasi persuratan elektronik dan etika email kedinasan.
+   - Tata tertib dan etika dalam mengikuti rapat virtual (penggunaan audio, video, dan chat).
+   - Etika bermedia sosial aparatur pemerintah sesuai kode etik ASN.
+
+5. Tema Pengelolaan Berkas dan Arsip Digital:
+   - Standar penamaan file dan struktur folder kerja yang rapi di Google Drive kantor.
+   - Pencadangan berkas kerja mandiri secara berkala.
+   - Penerapan Tanda Tangan Elektronik (TTE) resmi tersertifikasi BSrE.
+
+BAB III: METODE DAN WAKTU PELAKSANAAN
+Pelatihan diselenggarakan secara blended learning (pembelajaran mandiri daring dan kelas tatap muka praktik lab) dengan total 20 Jam Pelajaran (JP).
+    `,
+    clauses: [
+      {
+        title: 'Bab II: Tema-Tema Pelatihan Keterampilan Dasar Digital',
+        content: 'Pelatihan keterampilan dasar digital mencakup 5 tema utama: Literasi Keamanan Siber Dasar, Aplikasi Perkantoran Cloud, Pemanfaatan AI Produktif, Komunikasi Digital (Netiquette), dan Pengelolaan Arsip Digital.'
+      },
+      {
+        title: 'Bab III: Sasaran Peserta dan Alokasi Jam Pelajaran (JP)',
+        content: 'Seluruh pegawai ASN wajib mengikuti kurikulum keterampilan dasar dengan alokasi 20 JP dan sertifikat kelulusan resmi dari Biro SDM.'
+      }
+    ]
   }
 ];
 

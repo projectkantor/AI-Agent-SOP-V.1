@@ -57,7 +57,15 @@ class AppStore {
       this.teams = storedTeams ? JSON.parse(storedTeams) : [...INITIAL_TEAMS];
 
       const storedDocs = localStorage.getItem(STORAGE_KEYS.DOCUMENTS);
-      this.documents = storedDocs ? JSON.parse(storedDocs) : [...INITIAL_DOCUMENTS];
+      if (storedDocs) {
+        const parsed: Document[] = JSON.parse(storedDocs);
+        const missingInitials = INITIAL_DOCUMENTS.filter(
+          (initDoc) => !parsed.some((p) => p.id === initDoc.id)
+        );
+        this.documents = [...parsed, ...missingInitials];
+      } else {
+        this.documents = [...INITIAL_DOCUMENTS];
+      }
 
       const storedVersions = localStorage.getItem(STORAGE_KEYS.VERSIONS);
       this.versions = storedVersions ? JSON.parse(storedVersions) : [...INITIAL_VERSIONS];

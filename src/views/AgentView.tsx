@@ -60,6 +60,7 @@ interface Message {
 }
 
 const QUICK_QUESTIONS = [
+  'Apa saja tema pelatihan yang ada di Keterampilan Dasar?',
   'Berapa hari sebelum keberangkatan pengajuan perjalanan dinas luar kota?',
   'Apa saja syarat pencairan honorarium narasumber kegiatan?',
   'Berapa batas uang harian perjalanan dinas DKI Jakarta PMK 49/2023?',
