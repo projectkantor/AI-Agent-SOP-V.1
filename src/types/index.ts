@@ -85,6 +85,20 @@ export interface SourceReference {
   downloadAllowed: boolean;
 }
 
+export interface ScannedDocData {
+  documentId: string;
+  documentTitle: string;
+  documentNumber: string | null;
+  year: number | null;
+  ownerTeam: string;
+  sourceType: SourceType;
+  legalStatus: LegalStatus;
+  matchedClause: string;
+  keyFacts: string[];
+  extractedParagraph: string;
+  followUpSuggestions: string[];
+}
+
 export interface AIConversation {
   id: string;
   userId: string;

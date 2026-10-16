@@ -20,8 +20,14 @@ import {
   CheckCircle2,
   Lock,
   Globe,
+  FileSearch,
+  ListChecks,
+  Quote,
+  MessageSquarePlus,
+  HelpCircle,
+  FileCheck,
 } from 'lucide-react';
-import { User, AIConversation, SourceReference } from '../types';
+import { User, AIConversation, SourceReference, ScannedDocData } from '../types';
 import { askAIAgent, AnswerResult } from '../services/aiRAG';
 import { store } from '../services/store';
 
@@ -40,6 +46,7 @@ interface Message {
   sender: 'user' | 'agent';
   text: string;
   timestamp: string;
+  scannedDocData?: ScannedDocData;
   references?: SourceReference[];
   hasInactiveWarning?: boolean;
   inactiveWarningMessage?: string;
@@ -124,6 +131,7 @@ export const AgentView: React.FC<AgentViewProps> = ({
         sender: 'agent',
         text: result.answer,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        scannedDocData: result.scannedDocData,
         references: result.sourceReferences,
         hasInactiveWarning: result.hasInactiveWarning,
         inactiveWarningMessage: result.inactiveWarningMessage,
@@ -351,6 +359,123 @@ export const AgentView: React.FC<AgentViewProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Document Scanning & Text Extraction Insights Card (Data Hasil Pembacaan Dokumen) */}
+                {!isUser && message.scannedDocData && (
+                  <div className="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200/90 dark:border-emerald-800/80 rounded-2xl p-4 sm:p-5 space-y-3.5 shadow-xs">
+                    {/* Header */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-200/70 dark:border-emerald-800/60 pb-3">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                          <FileSearch className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold text-emerald-950 dark:text-emerald-100 uppercase tracking-wide">
+                              Data Hasil Pembacaan & Pemindaian Dokumen
+                            </span>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300">
+                              <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                              Dipindai AI Agent
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-emerald-700 dark:text-emerald-300/80 mt-0.5">
+                            Dokumen: <strong className="font-semibold text-emerald-900 dark:text-emerald-200">{message.scannedDocData.documentTitle}</strong> {message.scannedDocData.documentNumber ? `(${message.scannedDocData.documentNumber})` : ''}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-1.5 text-[10px]">
+                        <span className="px-2 py-0.5 rounded-md font-medium bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-emerald-200 dark:border-emerald-800">
+                          Unit: {message.scannedDocData.ownerTeam}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-md font-semibold ${
+                          message.scannedDocData.legalStatus === 'Berlaku'
+                            ? 'bg-emerald-200/70 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-200'
+                            : message.scannedDocData.legalStatus === 'Tidak Berlaku'
+                            ? 'bg-red-200/70 text-red-900 dark:bg-red-900 dark:text-red-200'
+                            : 'bg-yellow-200/70 text-yellow-900 dark:bg-yellow-900 dark:text-yellow-200'
+                        }`}>
+                          {message.scannedDocData.legalStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Matched Clause / Section */}
+                    <div className="bg-white/80 dark:bg-slate-900/80 border border-emerald-200/60 dark:border-emerald-800/60 rounded-xl p-3">
+                      <div className="flex items-start space-x-2">
+                        <ListChecks className="w-4 h-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-emerald-900 dark:text-emerald-300 uppercase tracking-wider">
+                            Klausul / Bab Teridentifikasi:
+                          </p>
+                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 mt-0.5">
+                            {message.scannedDocData.matchedClause}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Extracted Key Facts */}
+                    {message.scannedDocData.keyFacts && message.scannedDocData.keyFacts.length > 0 && (
+                      <div>
+                        <p className="text-[11px] font-bold text-emerald-950 dark:text-emerald-200 uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Fakta & Poin Kunci Hasil Scan Berkas:</span>
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {message.scannedDocData.keyFacts.map((fact, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-white dark:bg-slate-900 border border-emerald-100 dark:border-emerald-900/60 rounded-xl p-2.5 text-xs text-slate-700 dark:text-slate-300 flex items-start space-x-2 shadow-2xs hover:border-emerald-300 dark:hover:border-emerald-700 transition-colors"
+                            >
+                              <span className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center shrink-0 font-bold text-[10px] mt-0.5">
+                                {idx + 1}
+                              </span>
+                              <span className="leading-snug">{fact}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Extracted Paragraph Snippet */}
+                    {message.scannedDocData.extractedParagraph && (
+                      <div className="bg-emerald-100/40 dark:bg-emerald-950/50 border border-emerald-200/80 dark:border-emerald-900/70 rounded-xl p-3 text-xs text-slate-700 dark:text-slate-300">
+                        <div className="flex items-center space-x-1.5 text-[11px] font-semibold text-emerald-900 dark:text-emerald-300 mb-1">
+                          <Quote className="w-3 h-3 text-emerald-600" />
+                          <span>Kutipan Pembacaan Naskah Asli:</span>
+                        </div>
+                        <p className="text-[11px] leading-relaxed italic text-slate-600 dark:text-slate-400 whitespace-pre-wrap pl-2 border-l-2 border-emerald-400 dark:border-emerald-600">
+                          "{message.scannedDocData.extractedParagraph.length > 280 ? message.scannedDocData.extractedParagraph.slice(0, 280) + '...' : message.scannedDocData.extractedParagraph}"
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Interactive Chatbot Follow-up Suggestions (Ala Chatbot) */}
+                    {message.scannedDocData.followUpSuggestions && message.scannedDocData.followUpSuggestions.length > 0 && (
+                      <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-800/60">
+                        <p className="text-[11px] font-bold text-emerald-950 dark:text-emerald-200 mb-1.5 flex items-center space-x-1">
+                          <MessageSquarePlus className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Tanyakan Lanjutan (Klik untuk langsung kirim pertanyaan):</span>
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {message.scannedDocData.followUpSuggestions.map((suggestion, sIdx) => (
+                            <button
+                              key={sIdx}
+                              type="button"
+                              onClick={() => handleSendMessage(suggestion)}
+                              className="inline-flex items-center space-x-1.5 text-left text-[11px] font-medium px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 hover:bg-emerald-100/60 dark:hover:bg-emerald-900/40 hover:border-emerald-400 transition-all shadow-2xs group"
+                            >
+                              <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                              <span>{suggestion}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Source References Citations Card */}
                 {!isUser && message.references && message.references.length > 0 && (

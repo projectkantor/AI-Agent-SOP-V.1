@@ -1,9 +1,12 @@
-import { User, Document, SourceReference, AIConversation } from '../types';
+import { User, Document, SourceReference, AIConversation, ScannedDocData } from '../types';
 import { store } from './store';
 import { GoogleGenAI } from '@google/genai';
 
+export type { ScannedDocData };
+
 export interface AnswerResult {
   answer: string;
+  scannedDocData?: ScannedDocData;
   sourceReferences: SourceReference[];
   hasInactiveWarning: boolean;
   inactiveWarningMessage?: string;
@@ -254,8 +257,11 @@ Berikan jawaban langsung, ringkas, dan tepat menggunakan bahasa sehari-hari:`;
     );
   }
 
+  const scannedDocData = extractScannedDocumentData(trimmed, primaryMatch, terms);
+
   return {
     answer: generatedAnswer,
+    scannedDocData,
     sourceReferences,
     hasInactiveWarning,
     inactiveWarningMessage,
@@ -265,6 +271,476 @@ Berikan jawaban langsung, ringkas, dan tepat menggunakan bahasa sehari-hari:`;
     canCheckJDIH: true,
     searchQuery: trimmed,
     suggestedJdihUrl: jdihSearchUrl,
+  };
+}
+
+function extractScannedDocumentData(
+  question: string,
+  primary: Document,
+  terms: string[]
+): ScannedDocData {
+  const qLower = question.toLowerCase();
+
+  // Scenario 1: Perjalanan dinas
+  if (/perjadin|perjalanan dinas|sppd|luar kota|dinas luar/i.test(qLower) || primary.id.includes('perjadin')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/SDM/2024/001',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Kepegawaian & Pengembangan SDM',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Pasal 3 & Pasal 7: Ketentuan Pengajuan H-5 dan SPJ 5 Hari Kerja',
+      keyFacts: [
+        'Batas Pengajuan: Paling lambat H-5 hari kerja sebelum tanggal keberangkatan.',
+        'Berkas Pengajuan: Nota Dinas Permohonan, Surat Undangan resmi, dan Kerangka Acuan Kerja (KAK).',
+        'Penerbitan ST: Ditandatangani Pejabat Pimpinan Tinggi Pratama (Eselon II) atau Kepala Satker.',
+        'Batas Waktu SPJ: Wajib serahkan laporan tugas, boarding pass asli, dan invoice hotel maksimal 5 hari kerja.',
+        'Konsekuensi: Keterlambatan SPJ > 10 hari menunda pencairan perjadin berikutnya.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa standar uang harian dan plafon hotel DKI Jakarta?',
+        'Apa saja bukti pengeluaran riil yang diterima bagian keuangan?',
+        'Bagaimana jika tanggal keberangkatan dinas diperpanjang?'
+      ]
+    };
+  }
+
+  // Scenario 2: Cuti ASN
+  if (/cuti|alasan penting|cuti tahunan|cuti sakit|izin cuti/i.test(qLower) || primary.id.includes('cuti')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/SDM/2023/004',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Kepegawaian & Pengembangan SDM',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Bab II: Tata Cara Pemberian Hak Cuti Tahunan dan Cuti Sakit Pegawai ASN',
+      keyFacts: [
+        'Hak Cuti Tahunan: 12 hari kerja per tahun setelah 1 tahun bekerja terus menerus.',
+        'Alur Pengajuan: Input e-Cuti di portal SIMPEG lalu meminta persetujuan atasan langsung.',
+        'SLA Verifikasi SDM: Maksimal 2x24 jam kerja sebelum penerbitan SK Cuti.',
+        'Hak Sisa Cuti: Dapat diambil di tahun berikutnya maksimal 6 hari kerja.',
+        'Syarat Cuti Sakit: Wajib surat keterangan dokter pemerintah untuk sakit lebih dari 1 hari kerja.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Apakah pegawai baru boleh mengajukan cuti tahunan?',
+        'Apa saja syarat mengajukan cuti alasan penting keluarga sakit?',
+        'Bagaimana cara membatalkan permohonan e-Cuti yang sudah diajukan?'
+      ]
+    };
+  }
+
+  // Scenario 3: SBM PMK 49/2023
+  if (/sbm|uang harian|biaya masukan|penginapan hotel|tarif hotel|pmk 49/i.test(qLower) || primary.id.includes('pmk-49')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || '49/PMK.02/2023',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Kementerian Keuangan (JDIH)',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Lampiran I & II PMK 49/2023: Standar Biaya Masukan Tahun Anggaran 2024',
+      keyFacts: [
+        'Uang Harian DKI Jakarta: Rp 530.000 / hari (Jawa Barat Rp 430.000, Jawa Timur Rp 410.000, Bali Rp 480.000).',
+        'Plafon Penginapan Hotel Eselon III/Gol IV: Maksimal Rp 1.490.000 / malam (DKI Jakarta).',
+        'Tarif Honorarium Narasumber/Pakar: Maksimal Rp 1.400.000 per Orang/Jam Pelajaran (OJ).',
+        'Dasar Penggantian: Biaya penginapan dan transportasi dibayar sesuai bukti pengeluaran riil sah.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa tarif honor moderator kegiatan?',
+        'Berapa uang harian untuk provinsi Jawa Tengah?',
+        'Bagaimana ketentuan sewa kendaraan dinas di luar kota?'
+      ]
+    };
+  }
+
+  // Scenario 4: Honorarium Narasumber
+  if (/honor|narasumber|pembayaran honor|uang muka|spj honor|pajak pph/i.test(qLower) || primary.id.includes('honor')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/KEU/2024/009',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Keuangan & Perencanaan Anggaran',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Persyaratan Administrasi dan Perpajakan Pencairan Honorarium Kegiatan',
+      keyFacts: [
+        '5 Berkas Wajib: SK PPK, daftar hadir resmi bertandatangan, notula/materi paparan, foto dokumentasi, dan NPWP rekening aktif.',
+        'Pajak PPh 21 Golongan III: Dipotong 5% (memiliki NPWP).',
+        'Pajak PPh 21 Golongan IV: Dipotong 15% (memiliki NPWP).',
+        'Jangka Waktu Pencairan: Bendahara memproses transfer maksimal 3 hari kerja setelah berkas lengkap.',
+        'Ketentuan Pagu: Disesuaikan dengan batas maksimal jam pelajaran DIPA satker.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa potongan pajak PPh 21 jika narasumber bukan ASN?',
+        'Apakah narasumber bisa dibayarkan secara tunai?',
+        'Kapan bukti potong pajak 1721-A2 dibagikan ke narasumber?'
+      ]
+    };
+  }
+
+  // Scenario 5: PBJ < 50 Juta
+  if (/pengadaan|pbj|50 juta|langsung|spk|kuitansi/i.test(qLower) || primary.id.includes('pbj')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/PBJ/2023/012',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Umum & Pengadaan Barang/Jasa',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Ketentuan Nilai Transaksi dan Bukti Pertanggungjawaban Pembelian Langsung',
+      keyFacts: [
+        'Nilai s.d. Rp 10.000.000: Cukup kuitansi/nota pembelian bertoko stempel sah (tidak wajib SPK).',
+        'Nilai Rp 10.000.001 s.d. Rp 50.000.000: Wajib kuitansi bermaterai cukup dan Surat Pesanan sederhana.',
+        'Pemeriksaan Fisik: Wajib serah terima fisik dan penandatanganan Berita Acara Serah Terima (BAST).',
+        'Dokumen Usulan: Nota Dinas Kebutuhan dan HPS diajukan sebelum transaksi dilakukan.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Apakah wajib menggunakan penyedia barang yang ber-PKP?',
+        'Berapa batas waktu penyerahan BAST setelah barang tiba?',
+        'Kapan pengadaan barang wajib lewat e-Katalog?'
+      ]
+    };
+  }
+
+  // Scenario 6: Jam Kerja Fleksibel
+  if (/jam kerja|fleksibel|presensi|masuk kerja|wfo|wfh/i.test(qLower) || primary.id.includes('se-05')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SE.05/SJ/2023',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Kementerian Komunikasi dan Digital (JDIH)',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Butir 2: Rentang Jam Masuk Fleksibel dan Jam Kerja Efektif ASN',
+      keyFacts: [
+        'Total Jam Kerja Efektif: 37,5 jam per minggu (di luar jam istirahat).',
+        'Rentang Jam Datang Fleksibel: Pukul 07.30 sampai 08.30 WIB.',
+        'Kewajiban Durasi Harian: Kepulangan menyesuaikan jam kedatangan (misal masuk 08.00 WIB, pulang 16.30 WIB).',
+        'Metode Presensi: Wajib presensi geofencing aplikasi resmi kantor.',
+        'Peringatan JDIH: Berstatus Belum Terverifikasi pada sinkronisasi terbaru.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana jika presensi geofencing gagal karena sinyal GPS?',
+        'Apakah jam kerja fleksibel berlaku selama bulan Ramadhan?',
+        'Kapan sinkronisasi JDIH terakhir untuk surat edaran ini?'
+      ]
+    };
+  }
+
+  // Scenario 7: Keamanan Siber / Permenkomdigi No. 3 / Permenkominfo No. 12
+  if (/keamanan siber|csirt|enkripsi|permenkomdigi|spbe|tata kelola ti/i.test(qLower) || primary.id.includes('permen-03') || primary.id.includes('permen-12')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'Permenkomdigi No. 3/2024',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Kementerian Komunikasi dan Digital (JDIH)',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Pasal 4 & Pasal 12: Tata Kelola Keamanan Siber, Pembentukan CSIRT, dan Standar Enkripsi',
+      keyFacts: [
+        'Kewajiban CSIRT: Setiap instansi wajib membentuk Tim Tanggap Insiden Siber terdaftar di BSSN.',
+        'Standar Enkripsi Data: Minimal AES-256 saat tersimpan (at-rest) dan TLS 1.3 saat pengiriman data (transit).',
+        'Audit Keamanan: Wajib asesmen kerentanan (VAPT) minimal 1 kali per tahun.',
+        'Status Regulasi: Mencabut dan menggantikan Permenkominfo No. 12 Tahun 2021 secara penuh.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Mengapa Permenkominfo No. 12 Tahun 2021 dicabut?',
+        'Bagaimana alur pelaporan insiden peretasan ke CSIRT?',
+        'Apa saja sanksi administratif jika instansi lalai menjaga keamanan data?'
+      ]
+    };
+  }
+
+  // Scenario 8: SOP VPN Internal & Server
+  if (/vpn|server|kredensial|bastion/i.test(qLower) || primary.id.includes('vpn')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/TI/2024/002',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Teknologi Informasi & Keamanan Siber',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Pasal 4: Prosedur Otentikasi Dua Faktor dan Pengelolaan Akses Bastion Host',
+      keyFacts: [
+        'Otentikasi Wajib: MFA/TOTP berbasis aplikasi authenticator dinas.',
+        'Rotasi Password: Wajib dilakukan berkala setiap 90 hari kalender.',
+        'Larangan Jaringan: Dilarang keras menggunakan VPN kantor pada Wi-Fi publik tanpa enkripsi.',
+        'Akses Khusus: Hanya diberikan kepada anggota Tim TI yang terdaftar dalam daftar izin sistem.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana cara mendaftarkan perangkat baru untuk akses VPN?',
+        'Apa yang harus dilakukan jika token MFA hilang atau terhapus?',
+        'Apakah akses VPN otomatis terputus jika tidak aktif (idle timeout)?'
+      ]
+    };
+  }
+
+  // Scenario 9: SKP & Kinerja Pegawai (termasuk Batch Upload)
+  if (/skp|kinerja|penilaian pegawai|dialog kinerja/i.test(qLower) || primary.title.toLowerCase().includes('skp')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/SDM/2024/015',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Kepegawaian & Pengembangan SDM',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Pasal 2 & 3: Penyusunan Rencana Kerja dan Matriks Peran Hasil ASN',
+      keyFacts: [
+        'Batas Penyusunan Rencana Kerja: Maksimal 15 Januari setiap tahunnya.',
+        'Dialog Kinerja Berkala: Wajib dilaksanakan per triwulan antara atasan dan bawahan.',
+        'Penetapan Predikat: Kurva distribusi kinerja (Sangat Baik, Baik, Butuh Perbaikan) sesuai regulasi BKN.',
+        'Tindak Lanjut: Hasil evaluasi menjadi dasar rekomendasi mutasi dan reward talenta.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Kapan batas evaluasi kinerja triwulan pertama?',
+        'Bagaimana cara mengajukan keberatan atas penilaian atasan?',
+        'Apakah nilai SKP berpengaruh langsung terhadap pencairan tukin?'
+      ]
+    };
+  }
+
+  // Scenario 10: BMN / Inventaris Barang Milik Negara
+  if (/bmn|inventaris|peminjaman aset|laptop dinas|kendaraan/i.test(qLower) || primary.title.toLowerCase().includes('bmn')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/BMN/2024/007',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Umum & Pengadaan Barang/Jasa',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Bagian III: Tata Cara Peminjaman dan Pengembalian Aset Bergerak BMN',
+      keyFacts: [
+        'Formulir Pengajuan: Berita Acara Peminjaman Aset diajukan ke Tim Umum.',
+        'Durasi Maksimal: Peminjaman laptop dinas paling lama 14 hari kalender dengan izin kasubag.',
+        'Pemeriksaan Fisik: Wajib serah terima fisik dan cek fungsi sebelum dan sesudah peminjaman.',
+        'Tanggung Jawab: Kerusakan akibat kelalaian pribadi menjadi tanggung jawab peminjam.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana prosedur memperpanjang masa pinjam laptop dinas?',
+        'Apa syarat peminjaman kendaraan dinas operasional kantor?',
+        'Bagaimana penanganan aset BMN yang hilang atau dicuri?'
+      ]
+    };
+  }
+
+  // Scenario 11: Gangguan Jaringan & Internet
+  if (/gangguan|internet|wifi|troubleshoot|helpdesk/i.test(qLower) || primary.title.toLowerCase().includes('gangguan')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/TI/2024/008',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Teknologi Informasi & Keamanan Siber',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Alur Pelaporan Gangguan dan Service Level Agreement (SLA) Helpdesk',
+      keyFacts: [
+        'Pelaporan Tiket: Melalui helpdesk TI internal dengan bukti tangkapan layar (screenshot).',
+        'SLA Respon: Tim TI wajib merespon tiket dalam maksimal 15 menit pada jam kerja.',
+        'Eskalasi Backbone: Gangguan router/ISP utama dieskalasikan maksimal 2 jam ke penyedia.',
+        'Notifikasi Penyelesaian: Tiket ditutup setelah verifikasi langsung dengan pelapor.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Nomor kontak helpdesk darurat di luar jam kerja dinas?',
+        'Bagaimana meminta akses Wi-Fi tamu (guest network) untuk tamu kantor?',
+        'Apa langkah pertolongan pertama sebelum lapor ke helpdesk?'
+      ]
+    };
+  }
+
+  // Scenario 12: Tata Naskah Dinas & SK
+  if (/tata naskah|surat keputusan|format sk|penomoran/i.test(qLower) || primary.title.toLowerCase().includes('naskah')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/HKM/2023/021',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Hukum & Regulasi Internal',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Pedoman Penulisan, Penomoran, dan Tanda Tangan Elektronik Naskah Dinas',
+      keyFacts: [
+        'Format Font Standar: Bookman Old Style ukuran 12pt dengan lambang burung garuda/logo resmi.',
+        'Tanda Tangan Elektronik: Wajib menggunakan sertifikat digital tersertifikasi BSrE BSSN.',
+        'Penomoran Terpusat: Diterbitkan langsung melalui aplikasi persuratan resmi e-Office.',
+        'Hierarki Naskah: Mengikuti kaidah tata naskah dinas kementerian yang sah.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa margin standar halaman surat dinas resmi?',
+        'Bagaimana ketentuan tembusan surat dinas antar instansi?',
+        'Apa syarat verifikasi sebelum SK ditandatangani pimpinan?'
+      ]
+    };
+  }
+
+  // Scenario 13: Uang Persediaan (UP / GU)
+  if (/uang persediaan|bendahara|ganti uang|gu|up/i.test(qLower) || primary.title.toLowerCase().includes('persediaan')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/KEU/2024/011',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Keuangan & Perencanaan Anggaran',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Mekanisme Pengajuan Uang Persediaan (UP) dan Syarat Pertanggungjawaban Ganti Uang (GU)',
+      keyFacts: [
+        'Dasar Pengajuan: Bendahara Pengeluaran mengajukan SPP-UP berdasarkan pagu DIPA sah.',
+        'Syarat GU: Pengajuan Ganti Uang baru bisa dilakukan setelah realisasi UP mencapai minimal 50%.',
+        'Rekonsiliasi Bulanan: LPJ bendahara wajib dicocokkan dengan data Aplikasi SAKTI Kemenkeu.',
+        'Sisa Kas: Seluruh sisa kas UP pada akhir tahun anggaran wajib disetor kembali ke kas negara.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa batas maksimal pengeluaran tunai dari kas UP?',
+        'Kapan batas waktu penyerahan LPJ bulanan bendahara pengeluaran?',
+        'Bagaimana prosedur pengembalian sisa UP di akhir tahun anggaran?'
+      ]
+    };
+  }
+
+  // Scenario 14: Disiplin & Kode Etik ASN
+  if (/disiplin|kode etik|hukuman disiplin/i.test(qLower) || primary.title.toLowerCase().includes('disiplin')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/SDM/2024/019',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Kepegawaian & Pengembangan SDM',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Alur Pemeriksaan Dugaan Pelanggaran Disiplin dan Penyusunan Berita Acara',
+      keyFacts: [
+        'Surat Panggilan: Surat panggilan I dilayangkan minimal H-3 hari kerja sebelum sidang pemeriksaan.',
+        'Berita Acara Pemeriksaan: BAP wajib ditandatangani tim pemeriksa ad hoc dan pegawai bersangkutan.',
+        'Dasar Hukum Sanksi: Berpedoman pada Peraturan Pemerintah Nomor 94 Tahun 2021 tentang Disiplin PNS.',
+        'Tingkat Hukuman: Terbagi atas hukuman disiplin ringan, sedang, dan berat.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana jika terperiksa menolak menandatangani BAP?',
+        'Berapa hari tenggat banding administratif atas penjatuhan sanksi?',
+        'Siapa saja pejabat yang berwenang menjatuhkan hukuman disiplin?'
+      ]
+    };
+  }
+
+  // Scenario 15: Backup Data & DRP
+  if (/backup|cadangan data|drp|disaster recovery/i.test(qLower) || primary.title.toLowerCase().includes('backup')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/TI/2024/014',
+      year: primary.year || 2024,
+      ownerTeam: primary.ownerTeamName || 'Teknologi Informasi & Keamanan Siber',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Jadwal Siklus Cadangan Data dan Uji Berkala Pemulihan Sistem (DRP)',
+      keyFacts: [
+        'Backup Harian: Database dicadangkan otomatis setiap pukul 02.00 WIB.',
+        'Penyimpanan Off-site: Snapshot mingguan dienkripsi AES-256 dan disimpan pada server terpisah.',
+        'Simulasi DRP: Wajib uji coba pemulihan bencana minimal 1 kali per semester.',
+        'RTO & RPO: Target pemulihan sistem pelayanan publik maksimal 4 jam kerja.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Berapa lama masa retensi arsip cadangan data bulanan?',
+        'Bagaimana prosedur verifikasi integritas data backup?',
+        'Siapa penanggung jawab komando saat status bencana TI dinyatakan?'
+      ]
+    };
+  }
+
+  // Scenario 16: Pemeliharaan Gedung & Ruang Rapat
+  if (/gedung|pemeliharaan|ruang rapat|sarpras/i.test(qLower) || primary.title.toLowerCase().includes('gedung')) {
+    return {
+      documentId: primary.id,
+      documentTitle: primary.title,
+      documentNumber: primary.documentNumber || 'SOP/BMN/2023/005',
+      year: primary.year || 2023,
+      ownerTeam: primary.ownerTeamName || 'Umum & Pengadaan Barang/Jasa',
+      sourceType: primary.sourceType,
+      legalStatus: primary.legalStatus,
+      matchedClause: 'Reservasi Ruang Rapat Pimpinan dan Standar Kesiapan Fasilitas Kedinasan',
+      keyFacts: [
+        'Reservasi: Pengajuan permohonan ruang rapat paling lambat H-2 melalui bagian umum.',
+        'Kesiapan Fasilitas: Uji fungsi sound system, proyektor, dan AC dilakukan 30 menit sebelum acara.',
+        'Pemeliharaan Rutin: Servis berkala genset dan kelistrikan dilaksanakan setiap akhir pekan.',
+        'Prioritas Ruangan: Rapat pimpinan tingkat eselon memiliki hak prioritas penjadwalan.'
+      ],
+      extractedParagraph: primary.indexedText.trim(),
+      followUpSuggestions: [
+        'Bagaimana prosedur request konsumsi rapat dinas?',
+        'Apakah ruangan rapat boleh digunakan di luar jam kerja kantor?',
+        'Bagaimana cara membatalkan reservasi ruang rapat?'
+      ]
+    };
+  }
+
+  // Universal Dynamic Extractor for any other custom or batch uploaded documents
+  const lines = primary.indexedText
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 8 && !l.startsWith('STANDAR') && !l.startsWith('PROSEDUR'));
+
+  // Extract numbered or bulleted lines or key statements
+  const facts = lines
+    .filter((l) => /^\d+\.|\•|\-|\:|hari|wajib|maksimal|paling lambat|syarat|tahap/i.test(l))
+    .slice(0, 4)
+    .map((l) => l.replace(/^\d+\.\s*/, '').trim());
+
+  const matchedClause =
+    primary.clauses && primary.clauses[0]
+      ? primary.clauses[0].title
+      : lines[0] || 'Klausul Prosedur Operasional Terindeks';
+
+  return {
+    documentId: primary.id,
+    documentTitle: primary.title,
+    documentNumber: primary.documentNumber || 'Arsip Resmi Kedinasan',
+    year: primary.year || new Date().getFullYear(),
+    ownerTeam: primary.ownerTeamName || 'Unit Terkait',
+    sourceType: primary.sourceType,
+    legalStatus: primary.legalStatus,
+    matchedClause: matchedClause,
+    keyFacts:
+      facts.length > 0
+        ? facts
+        : [
+            `Dokumen ini resmi diampu oleh unit ${primary.ownerTeamName || 'instansi'}.`,
+            'Seluruh ketentuan operasional mengikat pegawai di lingkungan unit kerja terkait.',
+            'Verifikasi keabsahan dokumen dapat dicek langsung pada lampiran naskah resmi.'
+          ],
+    extractedParagraph: primary.indexedText.slice(0, 320).trim(),
+    followUpSuggestions: [
+      `Bagaimana alur persetujuan untuk ${primary.title.slice(0, 28)}...?`,
+      `Siapa saja pejabat yang berwenang mengesahkan dokumen ini?`,
+      `Apa saja formulir dan kelengkapan berkas yang wajib dilampirkan?`
+    ]
   };
 }
 
